@@ -25,6 +25,6 @@ var descCmd = &cobra.Command{
 
 func init() {
 	descCmd.Flags().StringP("input", "i", "", "Input file (that has the article numbers)")
-	descCmd.Flags().StringP("output", "o", "", "Output file (that has the descriptions)")
+	descCmd.Flags().StringP("output", "o", "./out.xlsx", "Output file (that has the descriptions)")
 	rootCmd.AddCommand(descCmd)
 }

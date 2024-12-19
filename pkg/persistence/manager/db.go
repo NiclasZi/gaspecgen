@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	_ "github.com/microsoft/go-mssqldb/azuread" // MS SQL driver with Azure AD support
+	"github.com/spf13/viper"
 )
 
 // DB is the singleton struct for the database connection.
@@ -18,6 +19,29 @@ var (
 	instance *DB
 	once     sync.Once
 )
+
+// Get returns the singleton instance with the connection from config
+func Get() *DB {
+	options := fmt.Sprintf("encrypt=%s", (func(opt bool) string {
+		if opt {
+			return "true"
+		}
+		return "false"
+	})(viper.GetBool("db-encrypt")))
+	if viper.GetBool("db-trust-cert") {
+		// TODO: Check if this is correct
+		options += "&Trust Server Certificate=True"
+	}
+	return GetInstance(
+		fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&%s",
+			viper.GetString("db-user"),
+			viper.GetString("db-password"),
+			viper.GetString("db-host"),
+			viper.GetString("db"),
+			options,
+		),
+	)
+}
 
 // GetInstance returns the singleton instance of the DB struct.
 func GetInstance(connString string) *DB {

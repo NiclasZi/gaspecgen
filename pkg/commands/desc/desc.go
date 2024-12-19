@@ -1,7 +1,13 @@
 package desc
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/Phillezi/nz-mssql/pkg/persistence/query"
+	"github.com/sirupsen/logrus"
+)
 
 func Desc(inputFilePath, outputFilePath string) {
-	logrus.Fatalln("Not implemented yet")
+	if inputFilePath == "" {
+		logrus.Fatalln("input file not specified, use -i to specify it")
+	}
+	query.PrelESpec(inputFilePath, outputFilePath)
 }

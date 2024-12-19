@@ -42,8 +42,23 @@ func init() {
 	rootCmd.PersistentFlags().String("loglevel", "info", "Set the logging level (info, warn, error, debug)")
 	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
 
-	rootCmd.PersistentFlags().String("db-host", "localhost:3306", "The DB host addr")
+	rootCmd.PersistentFlags().String("db", "mydb", "The db")
+	viper.BindPFlag("db", rootCmd.PersistentFlags().Lookup("db"))
+
+	rootCmd.PersistentFlags().String("db-host", "localhost:1433", "The DB host addr (host:port)")
 	viper.BindPFlag("db-host", rootCmd.PersistentFlags().Lookup("db-host"))
+
+	rootCmd.PersistentFlags().String("db-user", "myuser@domain.com", "The DB user (user@domain.com)")
+	viper.BindPFlag("db-user", rootCmd.PersistentFlags().Lookup("db-user"))
+
+	rootCmd.PersistentFlags().String("db-password", "mypassword", "The DB password")
+	viper.BindPFlag("db-password", rootCmd.PersistentFlags().Lookup("db-password"))
+
+	rootCmd.PersistentFlags().Bool("db-encrypt", true, "If encryption should be used")
+	viper.BindPFlag("db-encrypt", rootCmd.PersistentFlags().Lookup("db-encrypt"))
+
+	rootCmd.PersistentFlags().Bool("db-trust-cert", false, "If client should trust server cert")
+	viper.BindPFlag("db-trust-cert", rootCmd.PersistentFlags().Lookup("db-trust-cert"))
 
 	rootCmd.AddCommand(versionCmd)
 
