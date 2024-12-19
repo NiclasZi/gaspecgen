@@ -3,7 +3,6 @@ package query
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/Phillezi/nz-mssql/pkg/persistence/manager"
@@ -20,14 +19,54 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 		}
 	}()
 
-	inputData, err := os.ReadFile(inputFilePath)
+	ef, err := excelize.OpenFile(inputFilePath)
 	if err != nil {
-		logrus.Fatalf("Failed to read input file: %v", err)
+		fmt.Println(err)
+		return
+	}
+	defer func() {
+		// Close the spreadsheet.
+		if err := ef.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	// Hardcoded sheet for now
+	erows, err := ef.GetRows("PC2123X1 ArtNr")
+	if err != nil {
+		logrus.Fatalf("Failed to get rows: %v", err)
 	}
 
-	// Process input file contents
-	// Assume the file contains a list of `Art_nr` values, one per line
-	artNrList := strings.Split(string(inputData), "\n")
+	var artNrIndex int = -1
+	if len(erows) > 0 {
+		for i, header := range erows[0] {
+			if strings.TrimSpace(header) == "Art_nr" {
+				artNrIndex = i
+				break
+			}
+		}
+	}
+
+	// Error if "Art_nr" column is not found
+	if artNrIndex == -1 {
+		logrus.Fatalf("Failed to find 'Art_nr' column in the header")
+	}
+
+	// Extract all values from the "Art_nr" column
+	var artNrList []string
+	for i, row := range erows {
+		if i == 0 {
+			continue // Skip header row
+		}
+		if len(row) > artNrIndex { // Ensure row has enough columns
+			artNr := strings.TrimSpace(row[artNrIndex])
+			if artNr != "" {
+				artNrList = append(artNrList, artNr)
+			}
+		}
+	}
+
+	logrus.Debugln("found these ArtNrs:", artNrList)
 
 	// Build query parameter placeholders for `Art_nr`
 	placeholders := make([]string, len(artNrList))
@@ -37,30 +76,30 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 
 	// SQL query with IN clause
 	query := fmt.Sprintf(`
-SELECT [Art_nr]
-      ,(CASE
-         WHEN Std.designation IS NOT NULL THEN Std.designation
-         ELSE t3.MAKTX
-       END) AS Description
-      ,[QTY]
-      ,[Value]
-      ,SM.Name
-      ,PT.PurchaseText
-      ,PT.ChangedAt
-      ,[Ref Designator]
-  FROM [DETPLAN].[dbo].['PC2123X1 ArtNr$'] BOM
-  JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
-    ON BOM.Art_nr = PT.Artnr
-   AND PT.ISactive = 1
-  JOIN [MSupply].[dbo].[StandardManufacturer] SM
-    ON SM.[ManufacturerCode] = PT.[ManufacturerCode]
-  LEFT JOIN [Msupply].[dbo].[StandardMaterial] Std
-    ON Std.Artnr = BOM.Art_nr
-  LEFT JOIN [SAP].[dbo].[MaterialText_MAKT] t3
-    ON BOM.Art_nr = t3.MATNR
-   AND t3.SPRAS = 'E'
- WHERE BOM.Art_nr IN (%s);
-`, strings.Join(placeholders, ","))
+	SELECT [Art_nr]
+	      ,(CASE
+	         WHEN Std.designation IS NOT NULL THEN Std.designation
+	         ELSE t3.MAKTX
+	       END) AS Description
+	      ,[QTY]
+	      ,[Value]
+	      ,SM.Name
+	      ,PT.PurchaseText
+	      ,PT.ChangedAt
+	      ,[Ref Designator]
+	  FROM [DETPLAN].[dbo].['PC2123X1 ArtNr$'] BOM
+	  JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
+	    ON BOM.Art_nr = PT.Artnr
+	   AND PT.ISactive = 1
+	  JOIN [MSupply].[dbo].[StandardManufacturer] SM
+	    ON SM.[ManufacturerCode] = PT.[ManufacturerCode]
+	  LEFT JOIN [Msupply].[dbo].[StandardMaterial] Std
+	    ON Std.Artnr = BOM.Art_nr
+	  LEFT JOIN [SAP].[dbo].[MaterialText_MAKT] t3
+	    ON BOM.Art_nr = t3.MATNR
+	   AND t3.SPRAS = 'E'
+	 WHERE BOM.Art_nr IN (%s);
+	`, strings.Join(placeholders, ","))
 
 	// Prepare the statement
 	stmt, err := db.GetConnection().Prepare(query)
