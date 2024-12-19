@@ -29,8 +29,11 @@ func Get() *DB {
 		return "false"
 	})(viper.GetBool("db-encrypt")))
 	if viper.GetBool("db-trust-cert") {
-		// TODO: Check if this is correct
-		options += "&Trust Server Certificate=True"
+		options += "&TrustServerCertificate=true"
+	}
+	if viper.GetString("loglevel") == "debug" {
+		// All the logs
+		options += "&log=255"
 	}
 	return GetInstance(
 		fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&%s",
