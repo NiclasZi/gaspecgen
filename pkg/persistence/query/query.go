@@ -74,32 +74,9 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 		placeholders[i] = fmt.Sprintf("@p%d", i+1)
 	}
 
-	// SQL query with IN clause
-	query := fmt.Sprintf(`
-	SELECT [Art_nr]
-	      ,(CASE
-	         WHEN Std.designation IS NOT NULL THEN Std.designation
-	         ELSE t3.MAKTX
-	       END) AS Description
-	      ,[QTY]
-	      ,[Value]
-	      ,SM.Name
-	      ,PT.PurchaseText
-	      ,PT.ChangedAt
-	      ,[Ref Designator]
-	  FROM [DETPLAN].[dbo].['PC2123X1 ArtNr$'] BOM
-	  JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
-	    ON BOM.Art_nr = PT.Artnr
-	   AND PT.ISactive = 1
-	  JOIN [MSupply].[dbo].[StandardManufacturer] SM
-	    ON SM.[ManufacturerCode] = PT.[ManufacturerCode]
-	  LEFT JOIN [Msupply].[dbo].[StandardMaterial] Std
-	    ON Std.Artnr = BOM.Art_nr
-	  LEFT JOIN [SAP].[dbo].[MaterialText_MAKT] t3
-	    ON BOM.Art_nr = t3.MATNR
-	   AND t3.SPRAS = 'E'
-	 WHERE BOM.Art_nr IN (%s);
-	`, strings.Join(placeholders, ","))
+	query, args := buildQuery(artNrList)
+
+	logrus.Debugln("query:", query)
 
 	// Prepare the statement
 	stmt, err := db.GetConnection().Prepare(query)
@@ -107,12 +84,6 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 		logrus.Fatalf("Failed to prepare query: %v", err)
 	}
 	defer stmt.Close()
-
-	// Execute the query with the input values
-	args := make([]interface{}, len(artNrList))
-	for i, artNr := range artNrList {
-		args[i] = strings.TrimSpace(artNr) // Clean up whitespace
-	}
 
 	rows, err := stmt.Query(args...)
 	if err != nil {
@@ -167,4 +138,53 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 	}
 
 	fmt.Printf("Query results written to %s\n", outputFilePath)
+}
+
+// buildQuery generates the SQL query and arguments for the given Art_nr list.
+func buildQuery(artNrList []string) (string, []interface{}) {
+	// Prepare placeholders and arguments for the INSERT statement
+	placeholders := make([]string, len(artNrList))
+	args := make([]interface{}, len(artNrList))
+	for i, artNr := range artNrList {
+		placeholders[i] = fmt.Sprintf("(@p%d)", i+1)
+		args[i] = artNr
+	}
+
+	// Base query
+	query := `
+DECLARE @ArtNrList TABLE ([Art_nr] NVARCHAR(255));
+
+-- Insert values into the table variable
+INSERT INTO @ArtNrList ([Art_nr])
+VALUES %s;
+
+-- Main query
+SELECT ArtNrList.[Art_nr],
+       (CASE
+            WHEN Std.designation IS NOT NULL THEN Std.designation
+            ELSE t3.MAKTX
+       END) AS Description,
+       PT.QTY,
+       PT.Value,
+       SM.Name,
+       PT.PurchaseText,
+       PT.ChangedAt,
+       PT.[Ref Designator]
+FROM @ArtNrList AS ArtNrList
+LEFT JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
+    ON ArtNrList.Art_nr = PT.Artnr
+   AND PT.ISactive = 1
+LEFT JOIN [MSupply].[dbo].[StandardManufacturer] SM
+    ON SM.[ManufacturerCode] = PT.[ManufacturerCode]
+LEFT JOIN Msupply.[dbo].[StandardMaterial] Std
+    ON Std.Artnr = ArtNrList.Art_nr
+LEFT JOIN SAP.dbo.MaterialText_MAKT t3
+    ON ArtNrList.Art_nr = t3.MATNR
+   AND t3.SPRAS = 'E';
+`
+
+	// Format the query with placeholders
+	query = fmt.Sprintf(query, strings.Join(placeholders, ", "))
+
+	return query, args
 }
