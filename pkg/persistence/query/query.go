@@ -91,20 +91,32 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 		var artNr, description, name, purchaseText, changedAt, refDesignator string
 		var qty, value sql.NullInt64
 
+		// Scan the row values into variables
 		if err := rows.Scan(&artNr, &description, &qty, &value, &name, &purchaseText, &changedAt, &refDesignator); err != nil {
 			logrus.Fatalf("Failed to scan row: %v", err)
 		}
 
-		// Write data to each column
+		// Prepare the row data, handling NullInt64 values
 		values := []interface{}{
-			artNr, description, qty.Int64, value.Int64, name, purchaseText, changedAt, refDesignator,
+			artNr,
+			description,
+			// Handle NullInt64 for Qty and Value
+			getNullInt64Value(qty),
+			getNullInt64Value(value),
+			name,
+			purchaseText,
+			changedAt,
+			refDesignator,
 		}
+
+		// Write the values to the respective cells in the row
 		for i, v := range values {
-			col := string(rune('A' + i))
+			col := string(rune('A' + i)) // Convert index to Excel column letter
 			cell := fmt.Sprintf("%s%d", col, rowIndex)
 			f.SetCellValue(sheetName, cell, v)
 		}
 
+		// Move to the next row (in the excel sheet)
 		rowIndex++
 	}
 
@@ -161,15 +173,15 @@ VALUES %s;
 
 -- Query
 SELECT DISTINCT
-    BOM.[Art_nr],
-    BOM.[QTY],
+    BOM.[Art_nr],                                  -- Column 1: Art_nr
+    BOM.[QTY],                                     -- Column 2: QTY
     CASE
         WHEN Std.designation IS NOT NULL THEN Std.designation
         ELSE t3.MAKTX
-    END AS [Description],
-    Std.[Dimension],
-    SM.[Name] AS ManufacturerName,
-    PT.[PurchaseText]
+    END AS [Description],                          -- Column 3: Description (conditional)
+    Std.[Dimension],                               -- Column 4: Dimension
+    SM.[Name] AS ManufacturerName,                 -- Column 5: ManufacturerName
+    PT.[PurchaseText]                              -- Column 6: PurchaseText
 FROM 
     @BOM_List BOM
 JOIN 
@@ -191,4 +203,11 @@ LEFT JOIN SAP.dbo.MaterialText_MAKT t3
 	query = fmt.Sprintf(query, strings.Join(placeholders, ", "))
 
 	return query, args
+}
+
+func getNullInt64Value(n sql.NullInt64) interface{} {
+	if n.Valid {
+		return n.Int64
+	}
+	return nil // Or use 0 or another default value if you prefer
 }
