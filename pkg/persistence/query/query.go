@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Phillezi/nz-mssql/pkg/persistence/manager"
+	"github.com/Phillezi/nz-mssql/pkg/xlsx"
 	"github.com/sirupsen/logrus"
 	"github.com/xuri/excelize/v2"
 )
@@ -37,44 +38,24 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 		logrus.Fatalf("Failed to get rows: %v", err)
 	}
 
-	var artNrIndex int = -1
-	if len(erows) > 0 {
-		for i, header := range erows[0] {
-			if strings.TrimSpace(header) == "Art_nr" {
-				artNrIndex = i
-				break
-			}
-		}
+	qtyList, err := xlsx.GetByHeader[int](erows, "QTY")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	artNrList, err := xlsx.GetByHeader[string](erows, "Art_nr")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	refDesignatorList, err := xlsx.GetByHeader[string](erows, "Ref Designator")
+	if err != nil {
+		logrus.Fatal(err)
 	}
 
-	// Error if "Art_nr" column is not found
-	if artNrIndex == -1 {
-		logrus.Fatalf("Failed to find 'Art_nr' column in the header")
-	}
-
-	// Extract all values from the "Art_nr" column
-	var artNrList []string
-	for i, row := range erows {
-		if i == 0 {
-			continue // Skip header row
-		}
-		if len(row) > artNrIndex { // Ensure row has enough columns
-			artNr := strings.TrimSpace(row[artNrIndex])
-			if artNr != "" {
-				artNrList = append(artNrList, artNr)
-			}
-		}
-	}
-
+	logrus.Debugln("found these qtys:", qtyList)
 	logrus.Debugln("found these ArtNrs:", artNrList)
+	logrus.Debugln("found these refdesignators:", refDesignatorList)
 
-	// Build query parameter placeholders for `Art_nr`
-	placeholders := make([]string, len(artNrList))
-	for i := range artNrList {
-		placeholders[i] = fmt.Sprintf("@p%d", i+1)
-	}
-
-	query, args := buildQuery(artNrList)
+	query, args := buildQuery(qtyList, artNrList, refDesignatorList)
 
 	logrus.Debugln("query:", query)
 
@@ -141,48 +122,69 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 }
 
 // buildQuery generates the SQL query and arguments for the given Art_nr list.
-func buildQuery(artNrList []string) (string, []interface{}) {
+func buildQuery(qtyList []int, artNrList []string, refDesignatorList []string) (string, []interface{}) {
 	// Prepare placeholders and arguments for the INSERT statement
-	placeholders := make([]string, len(artNrList))
-	args := make([]interface{}, len(artNrList))
-	for i, artNr := range artNrList {
-		placeholders[i] = fmt.Sprintf("(@p%d)", i+1)
-		args[i] = artNr
+
+	if len(qtyList) != len(artNrList) || len(artNrList) != len(refDesignatorList) {
+		logrus.Fatal("Different length of qty, artnr and refdesignator (lists) is not allowed!")
+	}
+
+	placeholderLen := len(artNrList)
+	argsLen := len(qtyList) + len(artNrList) + len(refDesignatorList)
+	placeholders := make([]string, placeholderLen)
+	args := make([]interface{}, argsLen)
+
+	j := 0
+	for i := 0; i < placeholderLen; i++ {
+		placeholders[i] = fmt.Sprintf("(@p%d, @p%d, @p%d)", i+1, i+2, i+3)
+		args[j] = qtyList[i]
+		args[j+1] = artNrList[i]
+		args[j+2] = refDesignatorList[i]
+		j += 3
 	}
 
 	// Base query
 	query := `
 DECLARE @BOM_List TABLE (
-	[Art_nr] NVARCHAR(255)
+	[QTY] INT,
+	[Art_nr] NVARCHAR(255),
+	[Ref_Designator] NVARCHAR(255)
 );
 
 -- Insert values into the table variable
-INSERT INTO @ArtNrList ([Art_nr])
-VALUES (%s);
+INSERT INTO @BOM_List (
+	[QTY],
+	[Art_nr],
+	[Ref_Designator]
+)
+VALUES %s;
 
 -- Query
-SELECT distinct [Art_nr]
-	,[QTY]
- 	,(case
-		when Std.designation IS NOT NULL THEN Std.designation
-		else t3.MAKTX
-	end) AS Description
-	,std.Dimension
- 	,SM.Name
- 	,PT.PurchaseText
-  	FROM [DETPLAN].[dbo].[BOM_List] BOM
-  	JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
-  	ON BOM.Art_nr=PT.Artnr
-	AND PT.ISactive=1
-
-	JOIN [MSupply].[dbo].[StandardManufacturer] SM
-	ON SM.[ManufacturerCode]=PT.[ManufacturerCode]
-
-	LEFT JOIN Msupply.[dbo].[StandardMaterial] std
-	ON std.Artnr=BOM.Art_nr
-	LEFT JOIN SAP.dbo.MaterialText_MAKT t3
-	ON BOM.Art_nr = t3.MATNR
-	AND t3.SPRAS = 'E'
+SELECT DISTINCT
+    BOM.[Art_nr],
+    BOM.[QTY],
+    CASE
+        WHEN Std.designation IS NOT NULL THEN Std.designation
+        ELSE t3.MAKTX
+    END AS [Description],
+    Std.[Dimension],
+    SM.[Name] AS ManufacturerName,
+    PT.[PurchaseText]
+FROM 
+    @BOM_List BOM
+JOIN 
+    [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
+    ON BOM.[Art_nr] = PT.[Artnr]
+    AND PT.[ISactive] = 1
+JOIN 
+    [MSupply].[dbo].[StandardManufacturer] SM
+    ON SM.[ManufacturerCode] = PT.[ManufacturerCode]
+LEFT JOIN 
+    [MSupply].[dbo].[StandardMaterial] Std
+    ON BOM.[Art_nr] = Std.[Artnr]
+LEFT JOIN 
+    [MSupply].[dbo].[MaterialDescription] t3
+    ON BOM.[Art_nr] = t3.[Artnr];
 `
 
 	// Format the query with placeholders
