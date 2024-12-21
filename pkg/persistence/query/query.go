@@ -77,7 +77,7 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 
 	// Set headers in the first row
 	headers := []string{
-		"Art_nr", "Description", "Qty", "Value", "Name", "PurchaseText", "ChangedAt", "RefDesignator",
+		"Art_nr", "Qty", "Description", "Dimension", "ManufacturerName", "PurchaseText",
 	}
 	for i, header := range headers {
 		col := string(rune('A' + i)) // Convert index to Excel column letter
@@ -88,11 +88,11 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 	// Write query results to the Excel file
 	rowIndex := 2
 	for rows.Next() {
-		var artNr, description, name, purchaseText, changedAt, refDesignator string
-		var qty, value sql.NullInt64
+		var artNr, description, dimension, name, purchaseText string
+		var qty sql.NullInt64
 
 		// Scan the row values into variables
-		if err := rows.Scan(&artNr, &description, &qty, &value, &name, &purchaseText, &changedAt, &refDesignator); err != nil {
+		if err := rows.Scan(&artNr, &qty, &description, &dimension, &name, &purchaseText); err != nil {
 			logrus.Fatalf("Failed to scan row: %v", err)
 		}
 
@@ -102,11 +102,8 @@ func PrelESpec(inputFilePath, outputFilePath string) {
 			description,
 			// Handle NullInt64 for Qty and Value
 			getNullInt64Value(qty),
-			getNullInt64Value(value),
 			name,
 			purchaseText,
-			changedAt,
-			refDesignator,
 		}
 
 		// Write the values to the respective cells in the row
