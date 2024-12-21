@@ -136,7 +136,7 @@ func buildQuery(qtyList []int, artNrList []string, refDesignatorList []string) (
 
 	j := 0
 	for i := 0; i < placeholderLen; i++ {
-		placeholders[i] = fmt.Sprintf("(@p%d, @p%d, @p%d)", i+1, i+2, i+3)
+		placeholders[i] = fmt.Sprintf("(@p%d, @p%d, @p%d)", j+1, j+2, j+3)
 		args[j] = qtyList[i]
 		args[j+1] = artNrList[i]
 		args[j+2] = refDesignatorList[i]
