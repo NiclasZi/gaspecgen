@@ -148,7 +148,7 @@ func buildQuery(qtyList []int, artNrList []string, refDesignatorList []string) (
 DECLARE @BOM_List TABLE (
 	[QTY] INT,
 	[Art_nr] NVARCHAR(255),
-	[Ref_Designator] NVARCHAR(255)
+	[Ref_Designator] TEXT
 );
 
 -- Insert values into the table variable
