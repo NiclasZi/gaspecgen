@@ -182,9 +182,9 @@ JOIN
 LEFT JOIN 
     [MSupply].[dbo].[StandardMaterial] Std
     ON BOM.[Art_nr] = Std.[Artnr]
-LEFT JOIN 
-    [MSupply].[dbo].[MaterialDescription] t3
-    ON BOM.[Art_nr] = t3.[Artnr];
+LEFT JOIN SAP.dbo.MaterialText_MAKT t3
+	ON BOM.art_nr = t3.MATNR
+	AND t3.SPRAS = 'E';
 `
 
 	// Format the query with placeholders
