@@ -152,35 +152,37 @@ func buildQuery(artNrList []string) (string, []interface{}) {
 
 	// Base query
 	query := `
-DECLARE @ArtNrList TABLE ([Art_nr] NVARCHAR(255));
+DECLARE @BOM_List TABLE (
+	[Art_nr] NVARCHAR(255)
+);
 
 -- Insert values into the table variable
 INSERT INTO @ArtNrList ([Art_nr])
-VALUES %s;
+VALUES (%s);
 
--- Main query
-SELECT ArtNrList.[Art_nr],
-       (CASE
-            WHEN Std.designation IS NOT NULL THEN Std.designation
-            ELSE t3.MAKTX
-       END) AS Description,
-       PT.QTY,
-       PT.Value,
-       SM.Name,
-       PT.PurchaseText,
-       PT.ChangedAt,
-       PT.[Ref Designator]
-FROM @ArtNrList AS ArtNrList
-LEFT JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
-    ON ArtNrList.Art_nr = PT.Artnr
-   AND PT.ISactive = 1
-LEFT JOIN [MSupply].[dbo].[StandardManufacturer] SM
-    ON SM.[ManufacturerCode] = PT.[ManufacturerCode]
-LEFT JOIN Msupply.[dbo].[StandardMaterial] Std
-    ON Std.Artnr = ArtNrList.Art_nr
-LEFT JOIN SAP.dbo.MaterialText_MAKT t3
-    ON ArtNrList.Art_nr = t3.MATNR
-   AND t3.SPRAS = 'E';
+-- Query
+SELECT distinct [Art_nr]
+	,[QTY]
+ 	,(case
+		when Std.designation IS NOT NULL THEN Std.designation
+		else t3.MAKTX
+	end) AS Description
+	,std.Dimension
+ 	,SM.Name
+ 	,PT.PurchaseText
+  	FROM [DETPLAN].[dbo].[BOM_List] BOM
+  	JOIN [DETPLAN].[dbo].[SplitStandardMaterialPurchaseText] PT
+  	ON BOM.Art_nr=PT.Artnr
+	AND PT.ISactive=1
+
+	JOIN [MSupply].[dbo].[StandardManufacturer] SM
+	ON SM.[ManufacturerCode]=PT.[ManufacturerCode]
+
+	LEFT JOIN Msupply.[dbo].[StandardMaterial] std
+	ON std.Artnr=BOM.Art_nr
+	LEFT JOIN SAP.dbo.MaterialText_MAKT t3
+	ON BOM.Art_nr = t3.MATNR
+	AND t3.SPRAS = 'E'
 `
 
 	// Format the query with placeholders
