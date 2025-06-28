@@ -1,31 +1,41 @@
 # Variables
-BINARY_NAME=nz-mssql
+CLI_BINARY_NAME=gaspecgen
 BUILD_DIR=bin
-MAIN_FILE=main.go
-BUILDTIMESTAMP=$(shell date -u +%Y%m%d%H%M%S)
+EXT=$(if $(filter windows,$(GOOS)),.exe,)
+SERVICE_TEMPLATE_DIR=templates
+VERSION=$(shell git describe --tags --abbrev=0)
 
 # Targets
-.PHONY: all clean build run
+.PHONY: all build/* test release install clean lint docs
 
-all: build
+all: build/$(CLI_BINARY_NAME)
 
-build:
+build/%:
+	@echo "Building $*..."
+	@mkdir -p $(BUILD_DIR)
+	@go build -ldflags "-X github.com/Phillezi/gaspecgen/cmd/$*/cli.version=$(VERSION)" -o $(BUILD_DIR)/$*$(EXT) ./cmd/$*
+	@echo "Build complete: $(BUILD_DIR)/$*$(EXT)"
+
+test:
+	@go test ./...
+
+release/%:
 	@echo "Building the application..."
 	@mkdir -p $(BUILD_DIR)
-	@CGO_ENABLED=0 go build -ldflags "-X main.buildTimestamp=$(BUILDTIMESTAMP)" -o $(BUILD_DIR)/$(BINARY_NAME) .
+	@go build -mod=readonly -ldflags "-w -s -X github.com/Phillezi/gaspecgen/cmd/$*/cli.version=$(VERSION)" -o $(BUILD_DIR)/$*$(EXT) ./cmd/$*
 	@echo "Build complete."
 
-run: build
-	@echo "Running the application..."
-	@./$(BUILD_DIR)/$(BINARY_NAME)
-
-install: build
+install: release
 	@echo "installing"
-	@mkdir -p ~/.local/$(BINARY_NAME)/bin
-	@cp ./$(BUILD_DIR)/$(BINARY_NAME) ~/.local/$(BINARY_NAME)/bin/$(BINARY_NAME)
-	@echo "add to PATH"
+	@./scripts/escalate.sh cp ./$(BUILD_DIR)/$(CLI_BINARY_NAME)$(EXT) /usr/local/bin/$(CLI_BINARY_NAME)$(EXT)
 
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BUILD_DIR)
 	@echo "Clean complete."
+
+lint:
+	@./scripts/check-lint.sh
+
+docs:
+	@go run ./cmd/docs

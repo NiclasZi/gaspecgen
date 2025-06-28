@@ -1,27 +1,27 @@
-package manager
+package db
 
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"sync"
 
-	_ "github.com/microsoft/go-mssqldb/azuread" // MS SQL driver with Azure AD support
+	_ "github.com/microsoft/go-mssqldb/azuread"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
-// DB is the singleton struct for the database connection.
 type DB struct {
 	connection *sql.DB
 }
 
 var (
 	instance *DB
+	lastErr  error
 	once     sync.Once
 )
 
 // Get returns the singleton instance with the connection from config
-func Get() *DB {
+func Get() (*DB, error) {
 	options := fmt.Sprintf("encrypt=%s", (func(opt bool) string {
 		if opt {
 			return "true"
@@ -47,24 +47,28 @@ func Get() *DB {
 }
 
 // GetInstance returns the singleton instance of the DB struct.
-func GetInstance(connString string) *DB {
+// returns nil on failure
+func GetInstance(connString string) (*DB, error) {
 	once.Do(func() {
 		db, err := sql.Open("sqlserver", connString)
 		if err != nil {
-			log.Fatalf("Failed to connect to the database: %v", err)
+			//zap.L().Error("Failed to connect to the database", zap.Error(err))
+			lastErr = fmt.Errorf("failed to connect to the database, err: %s", err.Error())
+			return
 		}
 
 		// Ping the database to verify the connection
 		if err := db.Ping(); err != nil {
-			log.Fatalf("Failed to ping the database: %v", err)
+			//zap.L().Error("Failed to ping the database", zap.Error(err))
+			lastErr = fmt.Errorf("failed to ping the database, err: %s", err.Error())
 		}
 
 		instance = &DB{
 			connection: db,
 		}
-		fmt.Println("Database connection established.")
+		zap.L().Debug("Connected to db")
 	})
-	return instance
+	return instance, lastErr
 }
 
 // GetConnection provides access to the SQL database connection.

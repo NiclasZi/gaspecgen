@@ -1,46 +1,41 @@
-package cmd
+package cli
 
 import (
 	"fmt"
 
-	"github.com/Phillezi/nz-mssql/internal/config"
-	"github.com/sirupsen/logrus"
-
+	viperconf "github.com/Phillezi/common/config/viper"
+	zetup "github.com/Phillezi/common/logging/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "nz-mssql",
-	Short: "CLI app for querying a ms SQL db",
+	Use:  "gaspecctl",
+	Long: gaSpecCtl,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		level := viper.GetString("loglevel")
-		lvl, err := logrus.ParseLevel(level)
-		if err != nil {
-			logrus.Warnf("Invalid log level %s, falling back to INFO", level)
-			lvl = logrus.InfoLevel
-		}
-		logrus.SetLevel(lvl)
-
-		logrus.Debugf("Logging level set to %s", lvl)
+		zetup.Setup()
 	},
 }
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "See the version of the binary",
+	Use:     "version",
+	Aliases: []string{"v"},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("version: " + viper.GetString("release"))
+		fmt.Println(version)
 	},
 }
 
 func init() {
+	cobra.OnInitialize(func() { viperconf.InitConfig("nzctl") })
 
-	cobra.OnInitialize(config.InitConfig)
-
-	// Persistent flags
 	rootCmd.PersistentFlags().String("loglevel", "info", "Set the logging level (info, warn, error, debug)")
 	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
+
+	rootCmd.PersistentFlags().String("profile", "", "Set the logging profile (production or empty)")
+	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
+
+	rootCmd.PersistentFlags().Bool("stacktrace", false, "Show the stack trace in error logs")
+	viper.BindPFlag("stacktrace", rootCmd.PersistentFlags().Lookup("stacktrace"))
 
 	rootCmd.PersistentFlags().String("db", "mydb", "The db")
 	viper.BindPFlag("db", rootCmd.PersistentFlags().Lookup("db"))
@@ -61,5 +56,12 @@ func init() {
 	viper.BindPFlag("db-trust-cert", rootCmd.PersistentFlags().Lookup("db-trust-cert"))
 
 	rootCmd.AddCommand(versionCmd)
+}
 
+func ExecuteE() error {
+	return rootCmd.Execute()
+}
+
+func GetRootCMD() *cobra.Command {
+	return rootCmd
 }

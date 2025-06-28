@@ -5,9 +5,9 @@ $Yellow = [System.ConsoleColor]::Yellow
 $NoColor = [System.ConsoleColor]::White
 
 # Define the installation directory and binary name
-$INSTALL_DIR = "$HOME\.local\nz-mssql\bin"
-$BINARY_NAME = "nz-mssql"
-$GITHUB_REPO = "Phillezi/nz-mssql"
+$INSTALL_DIR = "$HOME\.local\gaspecgen\bin"
+$BINARY_NAME = "gaspecgen"
+$GITHUB_REPO = "Phillezi/gaspecgen"
 
 # Detect OS and architecture
 $OS = [System.Environment]::OSVersion.Platform
