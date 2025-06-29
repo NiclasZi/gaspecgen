@@ -2,12 +2,14 @@ package generator
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/Phillezi/common/utils/or"
 )
 
 type Generator interface {
 	Generate(data []map[string]string) error
+	GenerateIO(w io.Writer, data []map[string]string) error
 }
 
 type GenerationOptions struct {

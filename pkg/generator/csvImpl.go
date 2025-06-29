@@ -2,6 +2,7 @@ package generator
 
 import (
 	"encoding/csv"
+	"io"
 	"os"
 	"sort"
 )
@@ -43,6 +44,40 @@ func (g *CSVGenerator) Generate(data []map[string]string) error {
 			record[i] = row[h]
 		}
 		if err := w.Write(record); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (g *CSVGenerator) GenerateIO(w io.Writer, data []map[string]string) error {
+	if len(data) == 0 {
+		return nil
+	}
+
+	ww := csv.NewWriter(w)
+	defer ww.Flush()
+
+	// Extract headers from first row and sort for consistency
+	headers := make([]string, 0, len(data[0]))
+	for k := range data[0] {
+		headers = append(headers, k)
+	}
+	sort.Strings(headers)
+
+	// Write header row
+	if err := ww.Write(headers); err != nil {
+		return err
+	}
+
+	// Write each row in the order of headers
+	for _, row := range data {
+		record := make([]string, len(headers))
+		for i, h := range headers {
+			record[i] = row[h]
+		}
+		if err := ww.Write(record); err != nil {
 			return err
 		}
 	}

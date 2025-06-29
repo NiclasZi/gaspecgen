@@ -2,10 +2,12 @@ package loader
 
 import (
 	"encoding/csv"
+	"io"
 	"os"
 )
 
-type CSVLoader struct{}
+type CSVLoader struct {
+}
 
 func (l *CSVLoader) Load(path string) ([]map[string]string, error) {
 	f, err := os.Open(path)
@@ -15,6 +17,31 @@ func (l *CSVLoader) Load(path string) ([]map[string]string, error) {
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+
+	headers, err := reader.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	var rows []map[string]string
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			break
+		}
+		row := map[string]string{}
+		for i, h := range headers {
+			if i < len(record) {
+				row[h] = record[i]
+			}
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
+}
+
+func (l *CSVLoader) LoadIO(r io.Reader) ([]map[string]string, error) {
+	reader := csv.NewReader(r)
 
 	headers, err := reader.Read()
 	if err != nil {

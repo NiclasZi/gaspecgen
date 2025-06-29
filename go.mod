@@ -4,14 +4,17 @@ go 1.24.4
 
 require (
 	github.com/Phillezi/common/config v0.0.0-20250625213714-fa9676f3612d
+	github.com/Phillezi/common/interrupt v0.0.0-20250625213714-fa9676f3612d
 	github.com/Phillezi/common/logging/zap v0.0.0-20250625213714-fa9676f3612d
 	github.com/Phillezi/common/utils v0.0.0-20250625213714-fa9676f3612d
+	github.com/gorilla/mux v1.8.1
 	github.com/iancoleman/strcase v0.3.0
 	github.com/microsoft/go-mssqldb v1.9.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	github.com/xuri/excelize/v2 v2.9.1
 	go.uber.org/zap v1.27.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -46,5 +49,4 @@ require (
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

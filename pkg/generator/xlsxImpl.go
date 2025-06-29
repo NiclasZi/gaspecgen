@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"io"
 	"os"
 	"sort"
 
@@ -90,4 +91,48 @@ func (g *XLSXGenerator) Generate(data []map[string]string) error {
 	}
 
 	return f.SaveAs(g.Filename)
+}
+
+func (g *XLSXGenerator) GenerateIO(w io.Writer, data []map[string]string) error {
+	f := excelize.NewFile()
+
+	sheet := g.OutSheet
+	if sheet == "" {
+		sheet = "Sheet1"
+	}
+
+	// Create sheet if needed
+	if index, _ := f.GetSheetIndex(sheet); index == -1 {
+		f.NewSheet(sheet)
+	}
+
+	if len(data) == 0 {
+		return f.Write(w)
+	}
+
+	// Determine consistent column order from first row
+	columns := make([]string, 0, len(data[0]))
+	for col := range data[0] {
+		columns = append(columns, col)
+	}
+	sort.Strings(columns)
+
+	startRow := 1
+
+	// Write headers
+	for colIdx, col := range columns {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, startRow)
+		f.SetCellValue(sheet, cell, col)
+	}
+	startRow++
+
+	// Write data rows
+	for rowIdx, row := range data {
+		for colIdx, col := range columns {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, startRow+rowIdx)
+			f.SetCellValue(sheet, cell, row[col])
+		}
+	}
+
+	return f.Write(w)
 }

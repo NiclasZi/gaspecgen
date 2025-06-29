@@ -4,16 +4,34 @@ import (
 	"fmt"
 
 	viperconf "github.com/Phillezi/common/config/viper"
+	"github.com/Phillezi/common/interrupt"
 	zetup "github.com/Phillezi/common/logging/zap"
+	"github.com/Phillezi/gaspecgen/db"
+	"github.com/Phillezi/gaspecgen/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 var rootCmd = &cobra.Command{
-	Use:  "gaspecctl",
-	Long: gaSpecCtl,
+	Use:  "gaspecgen",
+	Long: gaSpecGen,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		zetup.Setup()
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		db, err := db.Get()
+		if err != nil {
+			zap.L().Fatal("Failed to connect to db", zap.Error(err))
+			interrupt.GetInstance().Shutdown()
+		}
+		defer func() {
+			if err := db.Close(); err != nil {
+				zap.L().Error("Failed to close the database connection", zap.Error(err))
+			}
+		}()
+		s := server.New(interrupt.GetInstance().Context(), "./static", "./upload", 8080)
+		s.Start()
 	},
 }
 
