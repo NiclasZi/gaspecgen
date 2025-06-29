@@ -14,7 +14,6 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/xuri/excelize/v2 v2.9.1
 	go.uber.org/zap v1.27.0
-	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

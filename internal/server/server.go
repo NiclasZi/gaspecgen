@@ -27,8 +27,7 @@ const (
 var indexHTML string
 
 type Server struct {
-	staticDir  string
-	uploadDir  string
+	host       string
 	httpServer *http.Server
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -38,15 +37,14 @@ type Server struct {
 	l *zap.Logger
 }
 
-func New(ctx context.Context, staticDir, uploadDir string, port int) *Server {
+func New(ctx context.Context, port int, hostOpt ...string) *Server {
 	ctxx, cancel := context.WithCancel(ctx)
 
 	s := &Server{
-		staticDir: staticDir,
-		uploadDir: uploadDir,
-		ctx:       ctxx,
-		cancel:    cancel,
-		l:         zap.L().Named("[SERVER]"),
+		host:   or.Or(or.Or(hostOpt...), "localhost"),
+		ctx:    ctxx,
+		cancel: cancel,
+		l:      zap.L().Named("[SERVER]"),
 	}
 
 	router := mux.NewRouter()
@@ -55,7 +53,6 @@ func New(ctx context.Context, staticDir, uploadDir string, port int) *Server {
 	api := router.PathPrefix("/api").Subrouter()
 	api.HandleFunc("/query", s.handleStreamTransform).Methods("POST")
 
-	//router.PathPrefix("/").Handler(http.FileServer(http.Dir(staticDir)))
 	router.PathPrefix("/").Handler(func() http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, indexHTML)
@@ -63,11 +60,15 @@ func New(ctx context.Context, staticDir, uploadDir string, port int) *Server {
 	}())
 
 	s.httpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf("%s:%d", s.host, port),
 		Handler: router,
 	}
 
 	return s
+}
+
+func (s *Server) Addr() string {
+	return fmt.Sprintf("http://%s", s.httpServer.Addr)
 }
 
 func (s *Server) Start() error {
@@ -94,6 +95,8 @@ func (s *Server) Start() error {
 	}
 }
 
+// Very large method...
+// Divide into multiple functions
 func (s *Server) handleStreamTransform(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

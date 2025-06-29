@@ -32,7 +32,7 @@ var rootCmd = &cobra.Command{
 				zap.L().Error("Failed to close the database connection", zap.Error(err))
 			}
 		}()
-		s := server.New(interrupt.GetInstance().Context(), "./static", "./upload", 8080)
+		s := server.New(interrupt.GetInstance().Context(), 8080)
 		var errCh chan error = make(chan error, 1)
 		go func() {
 			if err := s.Start(); err != nil {
@@ -41,7 +41,7 @@ var rootCmd = &cobra.Command{
 		}()
 
 		if viper.GetBool("open-browser") {
-			time.AfterFunc(500*time.Millisecond, func() { util.Open("http://localhost:8080") })
+			time.AfterFunc(500*time.Millisecond, func() { util.Open(s.Addr()) })
 		}
 
 		select {
