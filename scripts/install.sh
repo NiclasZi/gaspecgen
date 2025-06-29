@@ -38,7 +38,7 @@ check_dependencies() {
 }
 
 # -------- Argument parsing --------
-BINARIES=("gaspecctl")
+BINARIES=("gaspecgen")
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in

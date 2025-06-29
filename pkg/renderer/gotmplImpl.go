@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/Phillezi/nz-mssql/util"
+	"github.com/Phillezi/gaspecgen/util"
 )
 
 type GoTmplRenderer struct{}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Phillezi/common/utils/or"
-	"github.com/Phillezi/nz-mssql/util"
+	"github.com/Phillezi/gaspecgen/util"
 )
 
 type Loader interface {

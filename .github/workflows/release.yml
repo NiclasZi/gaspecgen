@@ -44,7 +44,13 @@ jobs:
 
           mkdir "$BIN_NAME"
           mv "$OUTPUT" "$BIN_NAME/"
-          tar -czf "dist/${BIN_NAME}_${OS}_${ARCH}.tar.gz" "$BIN_NAME"
+          
+          if [ "$OS" = "windows" ]; then
+            zip -r "dist/${BIN_NAME}_${OS}_${ARCH}.zip" "$BIN_NAME"
+          else
+            tar -czf "dist/${BIN_NAME}_${OS}_${ARCH}.tar.gz" "$BIN_NAME"
+          fi
+
           rm -r "$BIN_NAME"
 
       - name: Upload artifacts
@@ -67,6 +73,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**/*.tar.gz
+          files: |
+            dist/**/*.tar.gz
+            dist/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

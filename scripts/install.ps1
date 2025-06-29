@@ -1,80 +1,124 @@
-# Define color codes
-$Red = [System.ConsoleColor]::Red
-$Green = [System.ConsoleColor]::Green
-$Yellow = [System.ConsoleColor]::Yellow
-$NoColor = [System.ConsoleColor]::White
+# -------- Logging --------
+function Log-Info($msg)  { Write-Host "[INFO] $msg" -ForegroundColor Green }
+function Log-Warn($msg)  { Write-Host "[WARN] $msg" -ForegroundColor Yellow }
+function Log-Err($msg)   { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 
-# Define the installation directory and binary name
-$INSTALL_DIR = "$HOME\.local\gaspecgen\bin"
-$BINARY_NAME = "gaspecgen"
-$GITHUB_REPO = "Phillezi/gaspecgen"
+# -------- Spinner --------
+function Show-Spinner($scriptBlock) {
+  $spinner = @('|', '/', '-', '\')
+  $i = 0
+  $job = Start-Job $scriptBlock
 
-# Detect OS and architecture
-$OS = [System.Environment]::OSVersion.Platform
-$ARCH = if ([System.Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-
-# Determine OS and ARCH for the binary
-# Powershell can be installed on other OS:s than Windows now, so make sure its running on windows 
-switch ($OS) {
-    "Win32NT" { $OS = "windows" }
-    default { Write-Host "Unsupported OS: $OS" -ForegroundColor $Red; exit 1 }
+  while ($job.State -eq 'Running') {
+    Write-Host -NoNewline "`r[$($spinner[$i % $spinner.Length])] Working..."
+    Start-Sleep -Milliseconds 150
+    $i++
+  }
+  Receive-Job $job
+  Remove-Job $job
+  Write-Host "`r     `r" -NoNewline
 }
 
-switch ($ARCH) {
-    "x64" { $ARCH = "amd64" }
-    default { Write-Host "Unsupported architecture: $ARCH" -ForegroundColor $Red; exit 1 }
-}
-
-# Construct the download URL for the binary
-$BINARY_URL = "https://github.com/$GITHUB_REPO/releases/latest/download/${BINARY_NAME}_${ARCH}_${OS}.exe"
-
-# Function to show a loading spinner
-function Show-Spinner {
-    param (
-        [string]$Url,
-        [System.Net.WebClient]$WebClient
-    )
-    $spinstr = '|/-\'
-    $delay = 100
-    while ($WebClient.IsBusy) {
-        foreach ($char in $spinstr.ToCharArray()) {
-            Write-Host -NoNewline "$char" -ForegroundColor $Green
-            Start-Sleep -Milliseconds $delay
-            Write-Host -NoNewline "`b"
-        }
+# -------- Dependency check --------
+function Check-Dependencies {
+  param ($commands)
+  foreach ($cmd in $commands) {
+    if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
+      Log-Err "Missing dependency: $cmd"
+      exit 1
     }
-    Write-Host -NoNewline " " * $spinstr.Length -ForegroundColor $Green
+  }
 }
 
-# Create the install directory if it doesn't exist
-if (-not (Test-Path $INSTALL_DIR)) {
-    New-Item -Path $INSTALL_DIR -ItemType Directory | Out-Null
+# -------- Argument parsing --------
+$CustomOutputDir = "$env:ProgramFiles\gaspecgen\bin"
+$CustomArch = $null
+$CustomOS = $null
+
+for ($i = 0; $i -lt $args.Length; $i++) {
+  switch ($args[$i]) {
+    '-o' | '--output' | '--install-dir' {
+      $CustomOutputDir = $args[$i + 1]; $i++
+    }
+    '-a' | '--arch' | '--architecture' {
+      $CustomArch = $args[$i + 1]; $i++
+    }
+    '--os' | '--operating-system' {
+      $CustomOS = $args[$i + 1]; $i++
+    }
+    default {
+      Log-Err "Unknown argument: $($args[$i])"
+      exit 1
+    }
+  }
 }
 
-# Download the binary
-Write-Host "Downloading $BINARY_NAME for $OS $ARCH..." -ForegroundColor $Green
-$webClient = New-Object System.Net.WebClient
-$downloadTask = $webClient.DownloadFileTaskAsync($BINARY_URL, "$INSTALL_DIR\$BINARY_NAME.exe")
-Show-Spinner -Url $BINARY_URL -WebClient $webClient
+# -------- Binary installer --------
+function Install-Binary {
+  param ($BinaryName)
 
-# Wait for the download task to complete and handle errors
-try {
-    $downloadTask.Wait()
-} catch {
-    Write-Host "Failed to download the binary... :(" -ForegroundColor $Red
-    Write-Host "Check if the URL is correct:"
-    Write-Host $BINARY_URL
+  $OS = if ($CustomOS) { $CustomOS } else { "windows" }
+  $ARCH = if ($CustomArch) {
+    switch ($CustomArch.ToLower()) {
+      'x86_64' | 'amd64' { 'amd64' }
+      'aarch64' | 'arm64' { 'arm64' }
+      default {
+        Log-Err "Unsupported architecture: $CustomArch"; exit 1
+      }
+    }
+  } else {
+    $env:PROCESSOR_ARCHITECTURE -match 'ARM64' ? 'arm64' : 'amd64'
+  }
+
+  $GITHUB_REPO = "Phillezi/gaspecgen"
+
+  Log-Info "Fetching latest release version..."
+  $VERSION = (Invoke-RestMethod "https://api.github.com/repos/$GITHUB_REPO/releases/latest").tag_name
+  if (-not $VERSION) {
+    Log-Err "Failed to fetch latest version from $GITHUB_REPO"
     exit 1
+  }
+
+  $ZipName = "${BinaryName}_${OS}_${ARCH}.zip"
+  $DownloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$VERSION/$ZipName"
+  $TmpZip = "$env:TEMP\$ZipName"
+  $ExtractDir = "$env:TEMP\$BinaryName"
+
+  Log-Info "Downloading $BinaryName $VERSION for $OS $ARCH..."
+
+  Show-Spinner {
+    Invoke-WebRequest -Uri $DownloadUrl -OutFile $TmpZip -UseBasicParsing
+  }
+
+  if (-not (Test-Path $TmpZip)) {
+    Log-Err "Failed to download binary"
+    exit 1
+  }
+
+  Log-Info "Extracting..."
+  Expand-Archive -Path $TmpZip -DestinationPath $ExtractDir -Force
+
+  $BinaryPath = Join-Path $ExtractDir "$BinaryName.exe"
+  if (-not (Test-Path $BinaryPath)) {
+    Log-Err "Binary not found in archive"
+    exit 1
+  }
+
+  if (-not (Test-Path $CustomOutputDir)) {
+    New-Item -ItemType Directory -Path $CustomOutputDir -Force | Out-Null
+  }
+
+  Copy-Item -Path $BinaryPath -Destination "$CustomOutputDir\$BinaryName.exe" -Force
+
+  Log-Info "$BinaryName installed successfully to $CustomOutputDir"
+  Remove-Item $TmpZip -Force
+  Remove-Item $ExtractDir -Recurse -Force
 }
 
-# Add binary path to the user PATH environment variable
-$pathVariable = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User)
-if (-not ($pathVariable -like "*$INSTALL_DIR*")) {
-    [System.Environment]::SetEnvironmentVariable("PATH", "$pathVariable;$INSTALL_DIR", [System.EnvironmentVariableTarget]::User)
-    Write-Host "Added $INSTALL_DIR to PATH environment variable" -ForegroundColor $Green
-    Write-Host "Please restart PowerShell or open a new terminal to apply the changes."
-} else {
-    Write-Host "Path $INSTALL_DIR already added to PATH environment variable"
-}
+# -------- Main --------
+Check-Dependencies @('Invoke-RestMethod', 'Expand-Archive')
 
-Write-Host "$BINARY_NAME installed successfully!" -ForegroundColor $Green
+$Binaries = @('gaspecgen')
+foreach ($bin in $Binaries) {
+  Install-Binary -BinaryName $bin
+}

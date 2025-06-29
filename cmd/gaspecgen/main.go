@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/Phillezi/nz-mssql/cmd/gaspecgen/cli"
+	"github.com/Phillezi/gaspecgen/cmd/gaspecgen/cli"
 )
 
 func main() {
