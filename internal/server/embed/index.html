@@ -61,7 +61,7 @@
         sheet: document.getElementById('sheet').value,
       };
 
-      formData.append("config_file", new Blob(
+      formData.append("config", new Blob(
         [JSON.stringify(config)], { type: "application/json" }
       ), "config.json");
 
@@ -75,7 +75,7 @@
           const contentType = res.headers.get("Content-Type");
           if (contentType.includes("application/octet-stream") || contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") || contentType.includes("text/csv")) {
             const blob = await res.blob();
-            const filename = res.headers.get("Content-Disposition")?.split("filename=")[1] || "result";
+            const filename = res.headers.get("Content-Disposition")?.split("filename=")[1] || document.getElementById('output').value || "result";
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;

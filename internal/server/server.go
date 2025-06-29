@@ -2,19 +2,18 @@ package server
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/Phillezi/common/utils/or"
 	"github.com/NiclasZi/gaspecgen/db"
 	"github.com/NiclasZi/gaspecgen/pkg/generator"
 	"github.com/NiclasZi/gaspecgen/pkg/loader"
 	"github.com/NiclasZi/gaspecgen/pkg/renderer"
+	"github.com/Phillezi/common/utils/or"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -23,6 +22,9 @@ import (
 const (
 	defaultMaxMemoryUploadBytes = 10 << 20 // 100mb
 )
+
+//go:embed embed/index.html
+var indexHTML string
 
 type Server struct {
 	staticDir  string
@@ -51,13 +53,14 @@ func New(ctx context.Context, staticDir, uploadDir string, port int) *Server {
 
 	// API endpoints
 	api := router.PathPrefix("/api").Subrouter()
-	//api.HandleFunc("/upload", s.handleUpload).Methods("POST")
-	//api.HandleFunc("/download/{filename}", s.handleDownload).Methods("GET")
-	//api.HandleFunc("/json", s.handleJSON).Methods("POST")
 	api.HandleFunc("/query", s.handleStreamTransform).Methods("POST")
 
-	// Serve static files
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir(staticDir)))
+	//router.PathPrefix("/").Handler(http.FileServer(http.Dir(staticDir)))
+	router.PathPrefix("/").Handler(func() http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintln(w, indexHTML)
+		}
+	}())
 
 	s.httpServer = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
@@ -89,69 +92,6 @@ func (s *Server) Start() error {
 	case err := <-errCh:
 		return err
 	}
-}
-
-func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(or.Or(s.maxMemoryUploadBytes, defaultMaxMemoryUploadBytes))
-	if err != nil {
-		http.Error(w, "Invalid form", http.StatusBadRequest)
-		s.cancel()
-		return
-	}
-
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "Error retrieving file", http.StatusBadRequest)
-		s.cancel()
-		return
-	}
-	defer file.Close()
-
-	savePath := filepath.Join(s.uploadDir, handler.Filename)
-	out, err := os.Create(savePath)
-	if err != nil {
-		http.Error(w, "Unable to create file", http.StatusInternalServerError)
-		s.cancel()
-		return
-	}
-	defer out.Close()
-
-	io.Copy(out, file)
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "Uploaded file: %s\n", handler.Filename)
-	s.l.Debug("file uploaded")
-}
-
-func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	filename := vars["filename"]
-	filePath := filepath.Join(s.uploadDir, filename)
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "File not found", http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
-	http.ServeFile(w, r, filePath)
-}
-
-func (s *Server) handleJSON(w http.ResponseWriter, r *http.Request) {
-	var payload map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		s.cancel()
-		return
-	}
-	defer r.Body.Close()
-
-	response := map[string]interface{}{
-		"status":   "ok",
-		"received": payload,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) handleStreamTransform(w http.ResponseWriter, r *http.Request) {

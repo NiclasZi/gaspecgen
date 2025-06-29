@@ -2,12 +2,14 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/NiclasZi/gaspecgen/db"
+	"github.com/NiclasZi/gaspecgen/internal/server"
+	"github.com/NiclasZi/gaspecgen/util"
 	viperconf "github.com/Phillezi/common/config/viper"
 	"github.com/Phillezi/common/interrupt"
 	zetup "github.com/Phillezi/common/logging/zap"
-	"github.com/NiclasZi/gaspecgen/db"
-	"github.com/NiclasZi/gaspecgen/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -31,7 +33,25 @@ var rootCmd = &cobra.Command{
 			}
 		}()
 		s := server.New(interrupt.GetInstance().Context(), "./static", "./upload", 8080)
-		s.Start()
+		var errCh chan error = make(chan error, 1)
+		go func() {
+			if err := s.Start(); err != nil {
+				errCh <- err
+			}
+		}()
+
+		if viper.GetBool("open-browser") {
+			time.AfterFunc(500*time.Millisecond, func() { util.Open("http://localhost:8080") })
+		}
+
+		select {
+		case err := <-errCh:
+			zap.L().Fatal("Server sent error", zap.Error(err))
+			return // not necessary
+		case <-interrupt.GetInstance().Context().Done():
+			return
+		}
+
 	},
 }
 
@@ -44,7 +64,7 @@ var versionCmd = &cobra.Command{
 }
 
 func init() {
-	cobra.OnInitialize(func() { viperconf.InitConfig("nzctl") })
+	cobra.OnInitialize(func() { viperconf.InitConfig("gaspecgen", "config") })
 
 	rootCmd.PersistentFlags().String("loglevel", "info", "Set the logging level (info, warn, error, debug)")
 	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
@@ -72,6 +92,9 @@ func init() {
 
 	rootCmd.PersistentFlags().Bool("db-trust-cert", false, "If client should trust server cert")
 	viper.BindPFlag("db-trust-cert", rootCmd.PersistentFlags().Lookup("db-trust-cert"))
+
+	rootCmd.Flags().Bool("open-browser", false, "Open the url in the browser on server startup")
+	viper.BindPFlag("open-browser", rootCmd.Flags().Lookup("open-browser"))
 
 	rootCmd.AddCommand(versionCmd)
 }
