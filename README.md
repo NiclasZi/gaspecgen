@@ -4,12 +4,14 @@
 
 `gaspecgen` is a CLI tool / basic html gui providing powerful capabilities for working with Microsoft SQL databases, including the ability to upload and execute arbitrary SQL query templates and fill in data from excel or csv files using go templating inside of SQL files.
 
-> [!WARNING] **SECURITY RISK, SQL INJECTION CAPABILITIES BUILT-IN**
+> [!WARNING] 
+> **SECURITY RISK, SQL INJECTION CAPABILITIES BUILT-IN**
+> 
 > This tool *deliberately* allows execution of arbitrary SQL queries from user-supplied files.
 >
 > **This means it must NEVER be exposed to any network-accessible environment** or shared with untrusted users.
 >
-> **ONLY run `gaspecgen` on your local machine where you are the sole user**.
+> **ONLY run `gaspecgen` on your local machine where you are the sole user and dont bind it to any other host than localhost**.
 >
 > Exposing this tool over a network or to unauthorized users can have catastrophic consequences.
 
