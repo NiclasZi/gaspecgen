@@ -70,7 +70,7 @@ function Install-Binary {
     $env:PROCESSOR_ARCHITECTURE -match 'ARM64' ? 'arm64' : 'amd64'
   }
 
-  $GITHUB_REPO = "Phillezi/gaspecgen"
+  $GITHUB_REPO = "NiclasZi/gaspecgen"
 
   Log-Info "Fetching latest release version..."
   $VERSION = (Invoke-RestMethod "https://api.github.com/repos/$GITHUB_REPO/releases/latest").tag_name

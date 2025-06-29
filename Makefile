@@ -13,7 +13,7 @@ all: build/$(CLI_BINARY_NAME)
 build/%:
 	@echo "Building $*..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -ldflags "-X github.com/Phillezi/gaspecgen/cmd/$*/cli.version=$(VERSION)" -o $(BUILD_DIR)/$*$(EXT) ./cmd/$*
+	@go build -ldflags "-X github.com/NiclasZi/gaspecgen/cmd/$*/cli.version=$(VERSION)" -o $(BUILD_DIR)/$*$(EXT) ./cmd/$*
 	@echo "Build complete: $(BUILD_DIR)/$*$(EXT)"
 
 test:
@@ -22,7 +22,7 @@ test:
 release/%:
 	@echo "Building the application..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -mod=readonly -ldflags "-w -s -X github.com/Phillezi/gaspecgen/cmd/$*/cli.version=$(VERSION)" -o $(BUILD_DIR)/$*$(EXT) ./cmd/$*
+	@go build -mod=readonly -ldflags "-w -s -X github.com/NiclasZi/gaspecgen/cmd/$*/cli.version=$(VERSION)" -o $(BUILD_DIR)/$*$(EXT) ./cmd/$*
 	@echo "Build complete."
 
 install: release

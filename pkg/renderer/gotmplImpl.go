@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/Phillezi/gaspecgen/util"
+	"github.com/NiclasZi/gaspecgen/util"
 )
 
 type GoTmplRenderer struct{}

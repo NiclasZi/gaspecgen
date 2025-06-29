@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/Phillezi/common/utils/or"
-	"github.com/Phillezi/gaspecgen/util"
+	"github.com/NiclasZi/gaspecgen/util"
 )
 
 type Loader interface {

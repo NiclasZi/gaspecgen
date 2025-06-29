@@ -1,4 +1,4 @@
-module github.com/Phillezi/gaspecgen
+module github.com/NiclasZi/gaspecgen
 
 go 1.24.4
 

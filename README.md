@@ -14,7 +14,7 @@ This tool can be installed using `go`.
 > This requires go to be installed with correct PATH setup for go installed programs.
 
 ```bash
-go install github.com/Phillezi/gaspecgen
+go install github.com/NiclasZi/gaspecgen
 ```
 
 ### Download and install binary
@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/Phillezi/gaspecgen/main/scripts/ins
 
 ```
 
-Check out what the script does [here](https://github.com/Phillezi/gaspecgen/blob/main/scripts/install.sh).
+Check out what the script does [here](https://github.com/NiclasZi/gaspecgen/blob/main/scripts/install.sh).
 
 #### Windows
 
@@ -44,4 +44,4 @@ powershell -c "irm https://raw.githubusercontent.com/Phillezi/gaspecgen/main/scr
 
 ```
 
-Check out what the script does [here](https://github.com/Phillezi/gaspecgen/blob/main/scripts/install.ps1).
+Check out what the script does [here](https://github.com/NiclasZi/gaspecgen/blob/main/scripts/install.ps1).

@@ -40,7 +40,7 @@ jobs:
 
           OUTPUT="${BIN_NAME}_${OS}_${ARCH}${EXT}"
 
-          GOOS=$OS GOARCH=$ARCH go build -ldflags "-w -s -X github.com/Phillezi/gaspecgen/cmd/$BIN_NAME/cli.version=$VERSION" -o "$OUTPUT" ./cmd/$BIN_NAME
+          GOOS=$OS GOARCH=$ARCH go build -ldflags "-w -s -X github.com/NiclasZi/gaspecgen/cmd/$BIN_NAME/cli.version=$VERSION" -o "$OUTPUT" ./cmd/$BIN_NAME
 
           mkdir "$BIN_NAME"
           mv "$OUTPUT" "$BIN_NAME/"
