@@ -289,7 +289,7 @@ func (s *Server) handleStreamTransform(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer pw.Close()
 
-		if err := g.GenerateIO(pw, dataRows); err != nil {
+		if err := g.GenerateIO(pw, results); err != nil {
 			pw.CloseWithError(fmt.Errorf("file generation error: %w", err))
 		}
 	}()
