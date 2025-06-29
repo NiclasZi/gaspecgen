@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Query Uploader</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; max-width: 600px; margin: auto; }
+    label { display: block; margin-top: 1em; }
+    input, select, textarea, button { width: 100%; padding: 0.5em; margin-top: 0.5em; }
+    .section { margin-top: 2em; }
+  </style>
+</head>
+<body>
+  <h1>Upload Query and Data</h1>
+  <form id="uploadForm" enctype="multipart/form-data">
+    <label>
+      SQL File:
+      <input type="file" name="sql_file" accept=".sql" required>
+    </label>
+
+    <label>
+      Values File (CSV or XLSX):
+      <input type="file" name="values_file" accept=".csv, .xlsx">
+    </label>
+
+    <div class="section">
+      <h3>Config Options</h3>
+
+      <label>
+        Output Filename (optional):
+        <input type="text" id="output" placeholder="example.xlsx or result.csv">
+      </label>
+
+      <label>
+        Input Sheet Name (optional):
+        <input type="text" id="sheetNameIn" placeholder="Sheet1">
+      </label>
+
+      <label>
+        Output Sheet Name (optional, for XLSX output):
+        <input type="text" id="sheet" placeholder="ResultSheet">
+      </label>
+    </div>
+
+    <button type="submit">Submit Query</button>
+  </form>
+
+  <div id="result" class="section"></div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const result = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      const config = {
+        output: document.getElementById('output').value,
+        "sheet-name-in": document.getElementById('sheetNameIn').value,
+        sheet: document.getElementById('sheet').value,
+      };
+
+      formData.append("config_file", new Blob(
+        [JSON.stringify(config)], { type: "application/json" }
+      ), "config.json");
+
+      try {
+        const res = await fetch("/api/query", {
+          method: "POST",
+          body: formData
+        });
+
+        if (res.ok) {
+          const contentType = res.headers.get("Content-Type");
+          if (contentType.includes("application/octet-stream") || contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") || contentType.includes("text/csv")) {
+            const blob = await res.blob();
+            const filename = res.headers.get("Content-Disposition")?.split("filename=")[1] || "result";
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename.replaceAll('"', '');
+            link.click();
+            URL.revokeObjectURL(url);
+            result.innerHTML = `<p><strong>Download started:</strong> ${filename}</p>`;
+          } else {
+            const text = await res.text();
+            result.innerHTML = `<pre>${text}</pre>`;
+          }
+        } else {
+          const err = await res.text();
+          result.innerHTML = `<p style="color:red;"><strong>Error:</strong> ${err}</p>`;
+        }
+      } catch (err) {
+        result.innerHTML = `<p style="color:red;"><strong>Failed:</strong> ${err.message}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
